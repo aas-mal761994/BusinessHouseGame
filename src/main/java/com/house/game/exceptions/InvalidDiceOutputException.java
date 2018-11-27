@@ -1,4 +1,4 @@
-package com.house.game.exception;
+package com.house.game.exceptions;
 
 public class InvalidDiceOutputException extends Exception {
 

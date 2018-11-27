@@ -1,79 +1,98 @@
 package com.house.game.main;
 
-import com.house.game.exception.InvalidDiceOutputException;
+import com.house.game.exceptions.InSufficientChances;
+import com.house.game.exceptions.InSufficientFundsException;
+import com.house.game.exceptions.InvalidDiceOutputException;
 import com.house.game.models.*;
 
 import java.util.*;
 
 public class BusinessHouseGame {
     public static Map<Character, Cell> map = new HashMap<>();
+
     static {
         map.put('J', new Jail());
         map.put('L', new Lottery());
         map.put('E', new EmptyCell());
     }
 
-    public static void main(String[] args) throws InvalidDiceOutputException {
+    public static void main(String[] args) {
         //Take inputs from user
         System.out.println("*****************************************WELCOME IN BUSINESS HOUSE GAME*****************************************");
-        Scanner sc = new Scanner(System.in);
-        System.out.print("Enter the number of Players:");
-        int numberOfPlayers = Integer.valueOf(sc.next());
-        System.out.println("\n");
-        System.out.print("Enter the maximum number of chances(Each Player):");
-        int maximumNumberOfChances = Integer.valueOf(sc.next());
-        System.out.println("\n");
-        int bankMoney = 5000;
-        UpdateHotel updateHotel = new UpdateHotel();
-        List<User> players = new LinkedList<>();
-        //Builder Design Pattern:Builder Pattern is used when we want to make an object immutable(by not making any setter and getter for the object)
-        for (int p = 1; p <= numberOfPlayers; p++) {
-            User player = new User.Builder().name("Player" + p).noOfChances(maximumNumberOfChances).sequenceNumber(p).build();
-            players.add(player);
-        }
-        System.out.print("Enter the Board Input:");
-        String boardInput = sc.next();
-        System.out.println("\n");
-        Map<Integer, Hotel> hotelMap = new HashMap<>();
-        //TODO:think a way to get it from user
-        int diceOutputs[] = {2, 2, 1, 4, 2, 3, 4, 1, 3, 2, 2, 7, 4, 7, 2, 4, 4, 2, 2, 2, 2};
-        //int diceOutputs[]={2,2,1,4,4,2,4,4,2,2,2,1,4,4,2,4,4,2,2,2,1};
-        for (int i = 0; i < diceOutputs.length; i++) {
-            int playerTurn = getPlayerTurn(numberOfPlayers, i);
-            User playerSelected = players.get(playerTurn - 1);
-            if (diceOutputs[i] >= 1 && diceOutputs[i] <= 6 && playerSelected.getNoOfChances() <= maximumNumberOfChances) {
-                int t = diceOutputs[i] - 1 + playerSelected.getPosition();
-                if (((diceOutputs[i] - 1) + playerSelected.getPosition()) >= boardInput.length()) {
-                    t = t % boardInput.length();
-                }
-                char pos = boardInput.charAt(t);
-                if (map.containsKey(pos)) {
-                    //Factory Design Pattern
-                    Cell cell = map.get(pos);
-                    playerSelected.setMoney(playerSelected.getMoney() + cell.getPoints());
-                    bankMoney = bankMoney - cell.getPoints();
-                } else {
-                    if (hotelMap.containsKey(t)) {
-                        //Factory Design Pattern
-                        Hotel hotel = hotelMap.get(t);
-                        // If hotel belongs to different user
-                        if (!hotel.getUser().equals(playerSelected)) {
-                            payRentForHotel(playerSelected, hotel);
-                        } else {
-                            bankMoney = upgradeHotelType(bankMoney, updateHotel, hotelMap, playerSelected, t, hotel);
-                        }
-
-                    } else {
-                        // User is buying the Hotel for First Time
-                        bankMoney = buyHotel(bankMoney, updateHotel, hotelMap, playerSelected, t);
-                    }
-                }
-                playerSelected.setPosition(playerSelected.getPosition() + diceOutputs[i]);
-            } else {
-                throw new InvalidDiceOutputException("Please Enter Valid dice output which can lie between 1-6");
+        try {
+            Scanner sc = new Scanner(System.in);
+            System.out.print("Enter the number of Players:");
+            int numberOfPlayers = Integer.valueOf(sc.next());
+            System.out.println("\n");
+            System.out.print("Enter the maximum number of chances(Each Player):");
+            int maximumNumberOfChances = Integer.valueOf(sc.next());
+            System.out.println("\n");
+            int bankMoney = 5000;
+            UpdateHotel updateHotel = new UpdateHotel();
+            List<User> players = new LinkedList<>();
+            //Builder Design Pattern:Builder Pattern is used when we want to make an object immutable(by not making any setter and getter for the object)
+            for (int p = 1; p <= numberOfPlayers; p++) {
+                User player = new User.Builder().name("Player" + p).noOfChances(maximumNumberOfChances).sequenceNumber(p).build();
+                players.add(player);
             }
+            System.out.print("Enter the Board Input:");
+            String boardInput = sc.next();
+            System.out.println("\n");
+            Map<Integer, Hotel> hotelMap = new HashMap<>();
+            //TODO:think a way to get it from user
+            int diceOutputs[] = {2, 2, 1, 4, 2, 3, 4, 1, 3, 2, 2, 7, 4, 7, 2, 4, 4, 2, 2, 2, 2};
+            //int diceOutputs[]={2,2,1,4,4,2,4,4,2,2,2,1,4,4,2,4,4,2,2,2,1};
+            for (int i = 0; i < diceOutputs.length; i++) {
+                int playerTurn = getPlayerTurn(numberOfPlayers, i);
+                User playerSelected = players.get(playerTurn - 1);
+                if (diceOutputs[i] >= 1 && diceOutputs[i] <= 6 && playerSelected.getNoOfChances() <= maximumNumberOfChances && bankMoney > 0 && playerSelected.getMoney() > 0) {
+                    int t = diceOutputs[i] - 1 + playerSelected.getPosition();
+                    if (((diceOutputs[i] - 1) + playerSelected.getPosition()) >= boardInput.length()) {
+                        t = t % boardInput.length();
+                    }
+                    char pos = boardInput.charAt(t);
+                    if (map.containsKey(pos)) {
+                        //Factory Design Pattern
+                        Cell cell = map.get(pos);
+                        playerSelected.setMoney(playerSelected.getMoney() + cell.getPoints());
+                        bankMoney = bankMoney - cell.getPoints();
+                    } else {
+                        if (hotelMap.containsKey(t)) {
+                            //Factory Design Pattern
+                            Hotel hotel = hotelMap.get(t);
+                            // If hotel belongs to different user
+                            if (!hotel.getUser().equals(playerSelected)) {
+                                payRentForHotel(playerSelected, hotel);
+                            } else {
+                                bankMoney = upgradeHotelType(bankMoney, updateHotel, hotelMap, playerSelected, t, hotel);
+                            }
+
+                        } else {
+                            // User is buying the Hotel for First Time
+                            bankMoney = buyHotel(bankMoney, updateHotel, hotelMap, playerSelected, t);
+                        }
+                    }
+                    playerSelected.setPosition(playerSelected.getPosition() + diceOutputs[i]);
+                } else if (diceOutputs[i] > 6) {
+                    //exception should not be thrown here
+                    throw new InvalidDiceOutputException("Please Enter Valid dice output which can lie between 1-6");
+                } else if (playerSelected.getNoOfChances() > maximumNumberOfChances) {
+                    throw new InSufficientChances("Number of Chances exhausted for player:" + playerSelected.getName());
+                } else if (bankMoney < 0) {
+                    throw new InSufficientFundsException("Bank is out of Money :-( with balance:" + bankMoney);
+                } else if (playerSelected.getMoney() < 0) {
+                    System.out.println("Player " + playerSelected.getName() + " is out of money, So OUT OF GAME");
+                    players.remove(playerSelected);
+                }
+            }
+            showResults(bankMoney, players);
+        } catch (InSufficientChances exception) {
+            System.out.println("Exception due to: " + exception.getMessage());
+        } catch (InSufficientFundsException exception) {
+            System.out.println("Exception due to: " + exception.getMessage());
+        } catch (InvalidDiceOutputException exception) {
+            System.out.println("Exception due to: " + exception.getMessage());
         }
-        showResults(bankMoney, players);
 
     }
 
