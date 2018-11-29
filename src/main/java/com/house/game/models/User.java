@@ -44,6 +44,10 @@ public class User {
         return sequenceNumber;
     }
 
+    public void setNoOfChances(int chances){
+        this.noOfChances=chances;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

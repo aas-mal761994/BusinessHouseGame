@@ -8,83 +8,30 @@ import com.house.game.models.*;
 import java.util.*;
 
 public class BusinessHouseGame {
-    public static Map<Character, Cell> map = new HashMap<>();
+    public static Map<Character, Cell> cellsInBoardMap = new HashMap<>();
 
     static {
-        map.put('J', new Jail());
-        map.put('L', new Lottery());
-        map.put('E', new EmptyCell());
+        cellsInBoardMap.put('J', new Jail());
+        cellsInBoardMap.put('L', new Lottery());
+        cellsInBoardMap.put('E', new EmptyCell());
     }
 
     public static void main(String[] args) {
-        //Take inputs from user
         System.out.println("*****************************************WELCOME IN BUSINESS HOUSE GAME*****************************************");
         try {
             Scanner sc = new Scanner(System.in);
-            System.out.print("Enter the number of Players:");
-            int numberOfPlayers = Integer.valueOf(sc.next());
-            System.out.println("\n");
-            System.out.print("Enter the maximum number of chances(Each Player):");
-            int maximumNumberOfChances = Integer.valueOf(sc.next());
-            System.out.println("\n");
-            int bankMoney = 5000;
-            UpdateHotel updateHotel = new UpdateHotel();
-            List<User> players = new LinkedList<>();
             //Builder Design Pattern:Builder Pattern is used when we want to make an object immutable(by not making any setter and getter for the object)
-            for (int p = 1; p <= numberOfPlayers; p++) {
-                User player = new User.Builder().name("Player" + p).noOfChances(maximumNumberOfChances).sequenceNumber(p).build();
-                players.add(player);
-            }
+            List<User> players = getPlayersDetails(sc);
             System.out.print("Enter the Board Input:");
             String boardInput = sc.next();
             System.out.println("\n");
+            int bankMoney = 5000;
+            UpdateHotel updateHotel = new UpdateHotel();
             Map<Integer, Hotel> hotelMap = new HashMap<>();
             //TODO:think a way to get it from user
-            int diceOutputs[] = {2, 2, 1, 4, 2, 3, 4, 1, 3, 2, 2, 7, 4, 7, 2, 4, 4, 2, 2, 2, 2};
-            //int diceOutputs[]={2,2,1,4,4,2,4,4,2,2,2,1,4,4,2,4,4,2,2,2,1};
-            for (int i = 0; i < diceOutputs.length; i++) {
-                int playerTurn = getPlayerTurn(numberOfPlayers, i);
-                User playerSelected = players.get(playerTurn - 1);
-                if (diceOutputs[i] >= 1 && diceOutputs[i] <= 6 && playerSelected.getNoOfChances() <= maximumNumberOfChances && bankMoney > 0 && playerSelected.getMoney() > 0) {
-                    int t = diceOutputs[i] - 1 + playerSelected.getPosition();
-                    if (((diceOutputs[i] - 1) + playerSelected.getPosition()) >= boardInput.length()) {
-                        t = t % boardInput.length();
-                    }
-                    char pos = boardInput.charAt(t);
-                    if (map.containsKey(pos)) {
-                        //Factory Design Pattern
-                        Cell cell = map.get(pos);
-                        playerSelected.setMoney(playerSelected.getMoney() + cell.getPoints());
-                        bankMoney = bankMoney - cell.getPoints();
-                    } else {
-                        if (hotelMap.containsKey(t)) {
-                            //Factory Design Pattern
-                            Hotel hotel = hotelMap.get(t);
-                            // If hotel belongs to different user
-                            if (!hotel.getUser().equals(playerSelected)) {
-                                payRentForHotel(playerSelected, hotel);
-                            } else {
-                                bankMoney = upgradeHotelType(bankMoney, updateHotel, hotelMap, playerSelected, t, hotel);
-                            }
-
-                        } else {
-                            // User is buying the Hotel for First Time
-                            bankMoney = buyHotel(bankMoney, updateHotel, hotelMap, playerSelected, t);
-                        }
-                    }
-                    playerSelected.setPosition(playerSelected.getPosition() + diceOutputs[i]);
-                } else if (diceOutputs[i] > 6) {
-                    //exception should not be thrown here
-                    throw new InvalidDiceOutputException("Please Enter Valid dice output which can lie between 1-6");
-                } else if (playerSelected.getNoOfChances() > maximumNumberOfChances) {
-                    throw new InSufficientChances("Number of Chances exhausted for player:" + playerSelected.getName());
-                } else if (bankMoney < 0) {
-                    throw new InSufficientFundsException("Bank is out of Money :-( with balance:" + bankMoney);
-                } else if (playerSelected.getMoney() < 0) {
-                    System.out.println("Player " + playerSelected.getName() + " is out of money, So OUT OF GAME");
-                    players.remove(playerSelected);
-                }
-            }
+            //int diceOutputs[] = {2, 2, 1, 4, 2, 3, 4, 1, 3, 2, 2, 7, 4, 7, 2, 4, 4, 2, 2, 2, 2};
+            int diceOutputs[]={2,2,1,4,4,2,4,4,2,2,2,1,4,4,2,4,4,2,2,2,1};
+            bankMoney = startGame(players, boardInput, bankMoney, updateHotel, hotelMap, diceOutputs);
             showResults(bankMoney, players);
         } catch (InSufficientChances exception) {
             System.out.println("Exception due to: " + exception.getMessage());
@@ -94,6 +41,87 @@ public class BusinessHouseGame {
             System.out.println("Exception due to: " + exception.getMessage());
         }
 
+    }
+
+    private static int startGame(List<User> players, String boardInput, int bankMoney, UpdateHotel updateHotel, Map<Integer, Hotel> hotelMap, int[] diceOutputs) throws InvalidDiceOutputException, InSufficientChances, InSufficientFundsException {
+        for (int i = 0; i < diceOutputs.length; i++) {
+            int playerTurn = getPlayerTurn(players.size(), i);
+            User playerSelected = players.get(playerTurn - 1);
+            if (diceOutputs[i] >= 1 && diceOutputs[i] <= 6 && playerSelected.getNoOfChances() > 0 && bankMoney > 0 && playerSelected.getMoney() > 0) {
+                bankMoney = move(boardInput, bankMoney, updateHotel, hotelMap, diceOutputs[i], playerSelected);
+            } else if (diceOutputs[i] > 6) {
+                throw new InvalidDiceOutputException("Please Enter Valid dice output which can lie between 1-6");
+            } else if (playerSelected.getNoOfChances() < 0) {
+                throw new InSufficientChances("Number of Chances exhausted for player:" + playerSelected.getName());
+            } else if (bankMoney < 0) {
+                throw new InSufficientFundsException("Bank is out of Money :-( with balance:" + bankMoney);
+            } else if (playerSelected.getMoney() < 0) {
+                System.out.println("Player " + playerSelected.getName() + " is out of money, So OUT OF GAME");
+                players.remove(playerSelected);
+            }
+            playerSelected.setNoOfChances(playerSelected.getNoOfChances() - 1);
+        }
+        return bankMoney;
+    }
+
+    private static int move(String boardInput, int bankMoney, UpdateHotel updateHotel, Map<Integer, Hotel> hotelMap, int diceOutput, User playerSelected) {
+        int positionOnBoard = getPositionOnBoard(boardInput, diceOutput, playerSelected);
+        char cellOnBoard = boardInput.charAt(positionOnBoard);
+        if (cellsInBoardMap.containsKey(cellOnBoard)) {
+            bankMoney = otherCells(bankMoney, playerSelected, cellOnBoard);
+        } else {
+            bankMoney = hotelCell(bankMoney, updateHotel, hotelMap, playerSelected, positionOnBoard);
+        }
+        playerSelected.setPosition(playerSelected.getPosition() + diceOutput);
+        return bankMoney;
+    }
+
+    private static int getPositionOnBoard(String boardInput, int diceOutput, User playerSelected) {
+        int positionOnBoard = diceOutput - 1 + playerSelected.getPosition();
+        if (((diceOutput - 1) + playerSelected.getPosition()) >= boardInput.length()) {
+            positionOnBoard = positionOnBoard % boardInput.length();
+        }
+        return positionOnBoard;
+    }
+
+    private static int otherCells(int bankMoney, User playerSelected, char cellOnBoard) {
+        Cell cell = cellsInBoardMap.get(cellOnBoard);
+        playerSelected.setMoney(playerSelected.getMoney() + cell.getPoints());
+        bankMoney = bankMoney - cell.getPoints();
+        return bankMoney;
+    }
+
+    private static int hotelCell(int bankMoney, UpdateHotel updateHotel, Map<Integer, Hotel> hotelMap, User playerSelected, int positionOnBoard) {
+        if (hotelMap.containsKey(positionOnBoard)) {
+            //Factory Design Pattern
+            Hotel hotel = hotelMap.get(positionOnBoard);
+            // If hotel belongs to different user
+            if (!hotel.getUser().equals(playerSelected)) {
+                payRentForHotel(playerSelected, hotel);
+            } else {
+                bankMoney = upgradeHotelType(bankMoney, updateHotel, hotelMap, playerSelected, positionOnBoard, hotel);
+            }
+
+        } else {
+            // User is buying the Hotel for First Time
+            bankMoney = buyHotel(bankMoney, updateHotel, hotelMap, playerSelected, positionOnBoard);
+        }
+        return bankMoney;
+    }
+
+    private static List<User> getPlayersDetails(Scanner sc) {
+        System.out.print("Enter the number of Players:");
+        int numberOfPlayers = Integer.valueOf(sc.next());
+        List<User> players = new LinkedList<>();
+        System.out.println("\n");
+        System.out.print("Enter the maximum number of chances(Each Player):");
+        int maximumNumberOfChances = Integer.valueOf(sc.next());
+        for (int p = 1; p <= numberOfPlayers; p++) {
+            User player = new User.Builder().name("Player" + p).noOfChances(maximumNumberOfChances).sequenceNumber(p).build();
+            players.add(player);
+        }
+        System.out.println("\n");
+        return players;
     }
 
     private static void showResults(int bankMoney, List<User> players) {
