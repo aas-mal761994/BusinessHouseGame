@@ -1,6 +1,6 @@
 package com.house.game.exceptions;
 
-public class InvalidDiceOutputException extends Exception {
+public class InvalidDiceOutputException extends RuntimeException {
 
     public InvalidDiceOutputException(String s) {
         super(s);

@@ -1,6 +1,6 @@
 package com.house.game.exceptions;
 
-public class InSufficientChances extends Exception {
+public class InSufficientChances extends RuntimeException {
     public InSufficientChances(String s){
         super(s);
     }

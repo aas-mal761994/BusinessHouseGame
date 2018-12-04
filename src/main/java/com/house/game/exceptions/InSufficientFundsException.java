@@ -1,6 +1,6 @@
 package com.house.game.exceptions;
 
-public class InSufficientFundsException extends Exception {
+public class InSufficientFundsException extends RuntimeException {
     public InSufficientFundsException(String s) {
         super(s);
     }
